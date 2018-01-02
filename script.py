@@ -16,7 +16,7 @@ from cv_bridge import CvBridge, CvBridgeError
 # OpenCV2 for saving an image
 import cv2
 
-FAULTTYPE = ""
+FAULTTYPE = []
 
 CAMERAQUEUE = Queue.Queue()
 
@@ -46,7 +46,6 @@ def publisher_camera(item_right, item_left, true_topic=False):
     item_left.header.stamp = origin_time
     item_right.header.stamp = origin_time
     rospy.Rate(10)  # 10hz
-
     pub_right.publish(item_right)
     pub_left.publish(item_left)
 
@@ -56,9 +55,10 @@ def worker():
         item = CAMERAQUEUE.get()
         item_right = item[1]
         item_left = item[0]
-        if FAULTTYPE == "SLOW":
+        if FAULTTYPE[0] == "SLOW":
             time.sleep(CONFIG.getint("SLOW", "time") / 1000.0)
-        elif FAULTTYPE == "RANDOM":
+            publisher_camera(item_right, item_left)
+        elif FAULTTYPE[0] == "RANDOM":
             np_arr_right = numpy.fromstring(item_right.data, numpy.uint8)
             np_arr_right.tolist()
             random.shuffle(np_arr_right)
@@ -71,15 +71,15 @@ def worker():
             lRandom = numpy.array(np_arr_left)
             item_left.data = lRandom.tostring()
             publisher_camera(item_right, item_left)
-        elif FAULTTYPE == "FREEZE":
+        elif FAULTTYPE[0] == "FREEZE":
             if FREEZECOUNTER == 0:
                 FREEZEIMG = item
             if FREEZECOUNTER < CONFIG.getint("FREEZE", "iterations"):
                 FREEZECOUNTER += 1
             else:
-                publisher_camera(FREEZEIMG[1], FREEZEIMG[0])
                 FREEZECOUNTER = 0
-        elif FAULTTYPE == "REPLACE":
+            publisher_camera(FREEZEIMG[1], FREEZEIMG[0])
+        elif FAULTTYPE[0] == "REPLACE":
             rospy.loginfo("NotImplemented")
         else:
             rospy.loginfo("NotImplemented")
@@ -93,26 +93,22 @@ def inject_payload():
     imgpath_left = CONFIG.get("INJECTPAYLOAD", "path_left")
 
     stream_right = open(imgpath_right, "rb")
-    bytes = bytearray(stream_right.read())
-    numpyarray_right = numpy.asarray(bytes, dtype=numpy.uint8)
-    image_np_right = cv2.imdecode(
-        numpyarray_right, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+    file_bytes_right = numpy.asarray(bytearray(stream_right.read()), dtype=numpy.uint8)
+    img_data_ndarray_right = cv2.imdecode(file_bytes_right, cv2.CV_LOAD_IMAGE_GRAYSCALE)
 
     stream_left = open(imgpath_left, "rb")
-    bytes = bytearray(stream_left.read())
-    numpyarray_left = numpy.asarray(bytes, dtype=numpy.uint8)
-    image_np_left = cv2.imdecode(numpyarray_left, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+    file_bytes_left = numpy.asarray(bytearray(stream_left.read()), dtype=numpy.uint8)
+    img_data_ndarray_left = cv2.imdecode(file_bytes_left, cv2.CV_LOAD_IMAGE_GRAYSCALE)
 
     item_right = Image()
     item_right.header.stamp = rospy.Time.now()
     item_right.header.frame_id = "camera_link_tracking"
-    #item_right.format = "jpeg"
-    item_right.data = numpy.array(cv2.imencode(
-        '.jpg', image_np_right)[1]).tostring()
+    item_right.data = img_data_ndarray_right.tostring()
 
     item_left = item_right
-    item_left.data = numpy.array(cv2.imencode(
-        '.jpg', image_np_left)[1]).tostring()
+    item_left.data = img_data_ndarray_left.tostring()
+
+    print item_right.data
 
     while(True):
         publisher_camera(item_right, item_left, True)
@@ -197,11 +193,11 @@ def listener_cameras():
 def init(fault_type):
     rospy.init_node('listener', anonymous=True)
     rospy.loginfo("Starting...")
-    FAULTTYPE = fault_type
+    FAULTTYPE.append(str(fault_type))
     setup()
-    if FAULTTYPE == "INJECTPAYLOAD":
+    if FAULTTYPE[0] == "INJECTPAYLOAD":
         inject_payload()
-    elif FAULTTYPE == "CAMERASTORE":
+    elif FAULTTYPE[0] == "CAMERASTORE":
         camera_store()
     else:
         listener_cmd_vel()
@@ -215,9 +211,17 @@ def init(fault_type):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='ROS queue fault-injection toolkit')
+        description='ROS queue fault-injection toolkit', formatter_class=argparse.RawTextHelpFormatter)
+    help_info = '''Fault Type: RANDOM, SLOW, FREEZE, INJECTPAYLOAD, CAMERASTORE
+
+                RANDOM: Shuffles the camera feed images bytes
+                SLOW: Introduces a slowness in the camara image stream
+                FREEZE: Freezes a camara feed for n interations
+                INJECTPAYLOAD: Injects personalized images into the queue
+                CAMERASTORE: Stores all images in camera feeds
+                '''
     parser.add_argument(
-        '-f', '--faulttype', help='Fault Type: RANDOM, SLOW, FREEZE', required=True, default="None")
+        '-f', '--faulttype', help=help_info, required=True, default="None")
 
     args = parser.parse_args()
     init(args.faulttype)
