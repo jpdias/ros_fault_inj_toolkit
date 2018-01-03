@@ -16,6 +16,30 @@ from cv_bridge import CvBridge, CvBridgeError
 # OpenCV2 for saving an image
 import cv2
 
+
+class Counter:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.value = 0
+
+    def increment(self):
+        self.lock.acquire()
+        self.value = value = self.value + 1
+        self.lock.release()
+        return value
+
+    def reset(self):
+        self.value = 0
+        self.value = value = self.value
+        return value
+
+    def get(self):
+        self.value = value = self.value
+        return value
+
+
+FREEZECOUNTER = Counter()
+
 FAULTTYPE = []
 
 CAMERAQUEUE = Queue.Queue()
@@ -26,20 +50,18 @@ bridge = CvBridge()
 
 FREEZEIMG = None
 
-FREEZECOUNTER = 0
-
 
 def publisher_camera(item_right, item_left, true_topic=False):
     if true_topic:
         pub_right = rospy.Publisher(
-            "conde_camera_tracking_right/image_raw", Image, queue_size=10)
+            CONFIG.get("DEFAULTS", "camera_right_topic"), Image, queue_size=10)
         pub_left = rospy.Publisher(
-            "conde_camera_tracking_left/image_raw", Image, queue_size=10)
+            CONFIG.get("DEFAULTS", "camera_left_topic"), Image, queue_size=10)
     else:
         pub_right = rospy.Publisher(
-            "conde_camera_tracking_right/image_raw_fake", Image, queue_size=10)
+            CONFIG.get("DEFAULTS", "camera_right_topic_fake"), Image, queue_size=10)
         pub_left = rospy.Publisher(
-            "conde_camera_tracking_left/image_raw_fake", Image, queue_size=10)
+            CONFIG.get("DEFAULTS", "camera_left_topic_fake"), Image, queue_size=10)
     #camera_queue_pub(item_right, "right")
     #camera_queue_pub(item_left, "left")
     origin_time = rospy.Time.now()
@@ -51,6 +73,7 @@ def publisher_camera(item_right, item_left, true_topic=False):
 
 
 def worker():
+    
     while True:
         item = CAMERAQUEUE.get()
         item_right = item[1]
@@ -72,15 +95,18 @@ def worker():
             item_left.data = lRandom.tostring()
             publisher_camera(item_right, item_left)
         elif FAULTTYPE[0] == "FREEZE":
-            if FREEZECOUNTER == 0:
+            print FREEZECOUNTER.get()
+            if FREEZECOUNTER.get() == 0:
+                global FREEZEIMG
                 FREEZEIMG = item
-            if FREEZECOUNTER < CONFIG.getint("FREEZE", "iterations"):
-                FREEZECOUNTER += 1
+                FREEZECOUNTER.increment()
+            elif FREEZECOUNTER.increment() < CONFIG.getint("FREEZE", "iterations"):
+                pass
             else:
-                FREEZECOUNTER = 0
+                FREEZECOUNTER.reset()
             publisher_camera(FREEZEIMG[1], FREEZEIMG[0])
-        elif FAULTTYPE[0] == "REPLACE":
-            rospy.loginfo("NotImplemented")
+        elif FAULTTYPE[0] == "PARTIALLOSS":
+            print "hey"
         else:
             rospy.loginfo("NotImplemented")
             exit()
@@ -92,23 +118,17 @@ def inject_payload():
     imgpath_right = CONFIG.get("INJECTPAYLOAD", "path_right")
     imgpath_left = CONFIG.get("INJECTPAYLOAD", "path_left")
 
-    stream_right = open(imgpath_right, "rb")
-    file_bytes_right = numpy.asarray(bytearray(stream_right.read()), dtype=numpy.uint8)
-    img_data_ndarray_right = cv2.imdecode(file_bytes_right, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+    tt = rospy.Time.now()
 
-    stream_left = open(imgpath_left, "rb")
-    file_bytes_left = numpy.asarray(bytearray(stream_left.read()), dtype=numpy.uint8)
-    img_data_ndarray_left = cv2.imdecode(file_bytes_left, cv2.CV_LOAD_IMAGE_GRAYSCALE)
-
-    item_right = Image()
-    item_right.header.stamp = rospy.Time.now()
+    item_right = bridge.cv2_to_imgmsg(cv2.imread(imgpath_right), 'bgr8')
+    item_right.header.stamp = tt
     item_right.header.frame_id = "camera_link_tracking"
-    item_right.data = img_data_ndarray_right.tostring()
+    
+    item_left = bridge.cv2_to_imgmsg(cv2.imread(imgpath_left), 'bgr8')
+    item_left.header.stamp = tt
+    item_left.header.frame_id = "camera_link_tracking"
 
-    item_left = item_right
-    item_left.data = img_data_ndarray_left.tostring()
-
-    print item_right.data
+    #print item_right.data
 
     while(True):
         publisher_camera(item_right, item_left, True)
@@ -124,7 +144,7 @@ def camera_store_callback_right(msg):
         print(e)
     else:
         # Save your OpenCV2 image as a jpeg
-        cv2.imwrite('images/camera_image_right_' +
+        cv2.imwrite(CONFIG.get("CAMERASTORE", "path") + '/camera_image_right_' +
                     str(rospy.Time.now()) + '.jpeg', cv2_img)
 
 
@@ -138,15 +158,15 @@ def camera_store_callback_left(msg):
         print(e)
     else:
         # Save your OpenCV2 image as a jpeg
-        cv2.imwrite('images/camera_image_left_' +
+        cv2.imwrite(CONFIG.get("CAMERASTORE", "path") + '/camera_image_left_' +
                     str(rospy.Time.now()) + '.jpeg', cv2_img)
 
 
 def camera_store():
     image_right = rospy.Subscriber(
-        "conde_camera_tracking_right/image_raw", Image, camera_store_callback_right)
+        CONFIG.get("DEFAULTS", "camera_right_topic"), Image, camera_store_callback_right)
     image_left = rospy.Subscriber(
-        "conde_camera_tracking_left/image_raw", Image, camera_store_callback_left)
+        CONFIG.get("DEFAULTS", "camera_left_topic"), Image, camera_store_callback_left)
 
 
 def setup():
@@ -175,16 +195,16 @@ def callback_cameras(msg_left, msg_right):
 
 def listener_cmd_vel():
     print "listenning to cmd_vel"
-    rospy.Subscriber("cmd_vel_fake", Twist, callback_cmd_vel)
+    rospy.Subscriber(CONFIG.get("DEFAULTS", "cmd_vel"), Twist, callback_cmd_vel)
 
 
 def listener_cameras():
     print "listenning to cameras"
 
     image_right = message_filters.Subscriber(
-        "conde_camera_tracking_right/image_raw", Image)
+        CONFIG.get("DEFAULTS", "camera_right_topic"), Image)
     image_left = message_filters.Subscriber(
-        "conde_camera_tracking_left/image_raw", Image)
+        CONFIG.get("DEFAULTS", "camera_left_topic"), Image)
 
     ts = message_filters.TimeSynchronizer([image_left, image_right], 40)
     ts.registerCallback(callback_cameras)
@@ -212,13 +232,16 @@ def init(fault_type):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='ROS queue fault-injection toolkit', formatter_class=argparse.RawTextHelpFormatter)
-    help_info = '''Fault Type: RANDOM, SLOW, FREEZE, INJECTPAYLOAD, CAMERASTORE
+    help_info = '''Fault Type: RANDOM, SLOW, FREEZE, INJECTPAYLOAD, CAMERASTORE, PARTIALLOSS
 
                 RANDOM: Shuffles the camera feed images bytes
                 SLOW: Introduces a slowness in the camara image stream
                 FREEZE: Freezes a camara feed for n interations
                 INJECTPAYLOAD: Injects personalized images into the queue
                 CAMERASTORE: Stores all images in camera feeds
+                PARTIALLOSS: Loss of part of the image
+
+                -- Additional configuration in config.ini file.
                 '''
     parser.add_argument(
         '-f', '--faulttype', help=help_info, required=True, default="None")
