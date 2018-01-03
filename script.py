@@ -106,7 +106,100 @@ def worker():
                 FREEZECOUNTER.reset()
             publisher_camera(FREEZEIMG[1], FREEZEIMG[0])
         elif FAULTTYPE[0] == "PARTIALLOSS":
-            print "hey"
+            np_arr_right = numpy.fromstring(item_right.data, numpy.uint8)
+            np_arr_right.tolist()
+            
+            np_arr_left = numpy.fromstring(item_left.data, numpy.uint8)
+            np_arr_left.tolist()
+            if CONFIG.get("PARTIALLOSS", "orientation") == "horizontal":
+                if CONFIG.get("PARTIALLOSS", "split") == "top":
+                    for index, item in enumerate(np_arr_right):
+                        if index < len(np_arr_right)/2:
+                                np_arr_right[index] = 255
+                    rRandom = numpy.array(np_arr_right)
+                    item_right.data = rRandom.tostring()
+
+                    for index, item in enumerate(np_arr_left):
+                        if index < len(np_arr_right)/2:
+                                np_arr_left[index] = 255
+                    lRandom = numpy.array(np_arr_left)
+                else:
+                    for index, item in enumerate(np_arr_right):
+                        if index > len(np_arr_right)/2:
+                                np_arr_right[index] = 255
+                    rRandom = numpy.array(np_arr_right)
+                    item_right.data = rRandom.tostring()
+
+                    for index, item in enumerate(np_arr_left):
+                        if index > len(np_arr_right)/2:
+                                np_arr_left[index] = 255
+                    lRandom = numpy.array(np_arr_left)
+                item_left.data = lRandom.tostring()
+            elif CONFIG.get("PARTIALLOSS", "orientation") == "vertical":
+                rRandom = numpy.array(np_arr_right)
+                lRandom = numpy.array(np_arr_left)
+                count = 0
+                if CONFIG.get("PARTIALLOSS", "split") == "left":
+                    for index, val in numpy.ndenumerate(rRandom):
+                        if count <= (item_right.width)*3/2+2:
+                            rRandom[index]=255
+                            count += 1
+                        elif count <= (item_right.width-0.5)*3:
+                            count += 1
+                        else:
+                            count = 0
+                if CONFIG.get("PARTIALLOSS", "split") == "right":
+                    for index, val in numpy.ndenumerate(rRandom):
+                        if count <= (item_right.width)*3/2+2:
+                            count += 1
+                        elif count <= (item_right.width-0.5)*3:
+                            rRandom[index]=255
+                            count += 1
+                        else:
+                            count = 0
+                item_right.data = rRandom.tostring()
+
+                if CONFIG.get("PARTIALLOSS", "split") == "left":
+                    for index, val in numpy.ndenumerate(rRandom):
+                        if count <= (item_right.width)*3/2+2:
+                            lRandom[index]=255
+                            count += 1
+                        elif count <= (item_left.width-0.5)*3:
+                            count += 1
+                        else:
+                            count = 0
+                if CONFIG.get("PARTIALLOSS", "split") == "right":
+                    for index, val in numpy.ndenumerate(rRandom):
+                        if count <= (item_left.width)*3/2+2:
+                            count += 1
+                        elif count <= (item_left.width-0.5)*3:
+                            lRandom[index]=255
+                            count += 1
+                        else:
+                            count = 0
+                item_left.data = lRandom.tostring()
+
+                #for index, item in enumerate(np_arr_left):
+                #    if index % size == 0:
+                #            np_arr_left[index] = 255
+                #lRandom = numpy.array(np_arr_left)
+                #item_left.data = lRandom.tostring()
+            elif CONFIG.get("PARTIALLOSS", "orientation") == "odd-even":
+                for index, item in enumerate(np_arr_right):
+                    if index < len(np_arr_right):
+                        if index%2 == 0:
+                            np_arr_right[index] = 255
+                rRandom = numpy.array(np_arr_right)
+                item_right.data = rRandom.tostring()
+
+                for index, item in enumerate(np_arr_left):
+                    if index < len(np_arr_left):
+                        if index%2 == 0:
+                            np_arr_left[index] = 255
+                lRandom = numpy.array(np_arr_left)
+                item_left.data = lRandom.tostring()
+
+            publisher_camera(item_right, item_left)
         else:
             rospy.loginfo("NotImplemented")
             exit()
