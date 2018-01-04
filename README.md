@@ -69,8 +69,8 @@ A documented sample of the configuration file is available: [config.ini](config.
 
 ## Institutions
 
-![INESC TEC](/resources/inesc.png)
-![FEUP](/resources/feup.png)
+![INESC TEC](https://github.com/jpdias/nanostima-logbook/blob/master/resources/inesc.png)
+![FEUP](https://github.com/jpdias/nanostima-logbook/blob/master/resources/feup.png)
 
 ## Authors
 
