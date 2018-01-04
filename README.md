@@ -1,4 +1,4 @@
-#  ROS Fault Injection ToolkitROS Fault Injection Toolkit
+#  ROS Fault Injection Toolkit
 
 ## Scope
 
@@ -27,9 +27,6 @@ As so, there is the lack of a way to intentionally inject payloads (by the means
  $ roslaunch conde_world main.launch 
  ```
 2.  Launch _conde-simulator_ camera tracking. Launch files available [here](conde_simualtor). 
- ```bash
- $ roslaunch conde_tracking run.launch
- ``` 
  ```bash
  $ roslaunch conde_tracking run_fake.launch
  ``` 
