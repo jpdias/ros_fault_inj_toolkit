@@ -8,37 +8,72 @@ One of the used mechanisms for the development of such systems is the *Conde_Sim
 
 As so, there is the lack of a way to intentionally inject payloads (by the means of messages) in the system as a way to test its reliability, fault-tolerance, and, even further, attack mitigation and fail-safes. Within this scope, we propose the development of a toolkit in such way that it allows one to intentionally analyze, modify and inject information into the *Conde_Simulator* system.
 
-## Goals
+## Setup
 
-### Primary Goals
+### Software Dependencies
 
-- GUI & CLI modes
-- Explore messages between modules as the system is running (eavesdropping)
-- Freeze messages (keep sending the same reading)
-- Inject messages
-- Message queue flood attack
+- ROS distro: [ROS Indigo Full](http://wiki.ros.org/indigo)
+- Linux version: [Linux Lubuntu 14.04 LTS](https://lubuntu.net/)
+- Gazebo version: [Gazebo 2.2.3](http://gazebosim.org/)
+- Conde-simulator version: [2017-09-07](https://bitbucket.org/ee09115/conde_simulator_student)
+- Python version: [Python 2.7.14](https://www.python.org/)
+
+### Using the Toolkit
+
+#### Environment Setup
+
+1. Launch _conde-simulator_ world simulator.
+ ```bash
+ $ roslaunch conde_world main.launch 
+ ```
+2.  Launch _conde-simulator_ camera tracking. Launch files available [here](conde_simualtor). 
+ ```bash
+ $ roslaunch conde_tracking run.launch
+ ``` 
+ ```bash
+ $ roslaunch conde_tracking run_fake.launch
+ ``` 
  
-### Secundary Goals
 
-- Intercept & Replay messages
-- Explore hardening solutions to increase security and fault-tolerance (e.g. encryption)
+3. Make the robot move forward.
+ ```bash 
+ $ ./move_scripts/samplemove.sh
+ ``` 
 
+4. Launch the toolkit with the fault to inject.
+ ```bash
+ $ python script.py -f FAULTTYPE 
+ ```
 
-## Deliverables
+#### Toolkit Help
 
-### First Component (#3)
+```bash
+usage: ros-inj-tool.py [-h] -f FAULTTYPE
 
-- State of the art in robotics simulation systems in the scope of security, fault-tolerance & testing
-  - Focus on autonumous driving
-- Tools available
-- Evaluation scenarios
-- Tool Requirements & Functionalities mock-up
+ROS queue fault-injection toolkit
 
-### Second Component (#4)
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FAULTTYPE, --faulttype FAULTTYPE
 
-- Article
-- Tool covering *at least* the primary goals
-- Evaluation use scenarios
+      FAULTTYPE: RANDOM, SLOW, FREEZE, INJECTPAYLOAD, CAMERASTORE, PARTIALLOSS
+      
+        RANDOM: Shuffles the camera feed images bytes
+        SLOW: Introduces a slowness in the camara image stream
+        FREEZE: Freezes a camara feed for n interations
+        INJECTPAYLOAD: Injects personalized images into the queue
+        CAMERASTORE: Stores all images in camera feeds
+        PARTIALLOSS: Loss of part of the image
+
+        -- Additional configuration in config.ini file.
+```
+
+A documented sample of the configuration file is available: [config.ini](config.ini)
+
+## Institutions
+
+![INESC TEC](/resources/inesc.png)
+![FEUP](/resources/feup.png)
 
 ## Authors
 
