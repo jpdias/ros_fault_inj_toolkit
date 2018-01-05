@@ -1,5 +1,7 @@
 #  ROS Fault Injection Toolkit
 
+### [Presentation Slides](https://speakerdeck.com/jpdias/fault-injection-on-robotic-systems-simulators)
+
 ## Scope
 
 As of today, robotics is widespread in the world, ranging from different applications and use cases. One of most trending topics is autonomous driving, with companies like Google and Tesla investing into it. This system highly depends on sensing the environment in order to make decisions and move correctly in, e.g., roads or industrial floors. One of the most used sensors is cameras. The images collected from cameras are processed at different levels until a final decision is taken on the car next move (e.g. turn or break). 
